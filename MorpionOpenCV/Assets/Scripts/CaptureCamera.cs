@@ -16,7 +16,7 @@ public class CaptureCamera : MonoBehaviour
     private Mat imageGrabbed = new Mat();
     Texture2D tex;
     private System.Drawing.Rectangle[] faces = new System.Drawing.Rectangle[1];
-
+    
 
     // Start is called before the first frame update
     void Start()
@@ -62,7 +62,7 @@ public class CaptureCamera : MonoBehaviour
             }   
         }
 
-        System.Threading.Thread.Sleep(150);
+        System.Threading.Thread.Sleep(200);
         //Debug.Log(imageGrabbed.Size);
     }
     private void DisplayFrameOnPlane()
