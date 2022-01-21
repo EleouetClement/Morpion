@@ -2,21 +2,26 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using System.Drawing;
 
 using Emgu.CV;
 using Emgu.CV.Structure;
 using Emgu.CV.CvEnum;
 using Emgu.CV.Util;
+using System;
 
 public class CaptureCamera : MonoBehaviour
 {
-    
+
     private VideoCapture webCamera = new VideoCapture(0);
     public RawImage webcamScreen;
     private Mat imageGrabbed = new Mat();
+    private Mat grayImaged = new Mat();
+
     Texture2D tex;
+
     private System.Drawing.Rectangle[] faces = new System.Drawing.Rectangle[1];
-    
+
 
     // Start is called before the first frame update
     void Start()
@@ -40,7 +45,7 @@ public class CaptureCamera : MonoBehaviour
 
     private void OnDestroy()
     {
-        
+
         if (webCamera != null)
         {
             Debug.LogWarning("Camera down");
@@ -54,17 +59,22 @@ public class CaptureCamera : MonoBehaviour
         if (webCamera.IsOpened)
         {
             webCamera.Retrieve(imageGrabbed);
-            Debug.Log("camera openned");
+            //Debug.Log("camera openned");
 
             lock (imageGrabbed)
             {
-                
-            }   
+                CvInvoke.CvtColor(imageGrabbed, imageGrabbed, ColorConversion.Bgr2Gray);
+                CvInvoke.GaussianBlur(imageGrabbed, imageGrabbed,new Size(3, 3), 1);
+                ShapeDetection(imageGrabbed);
+            }
         }
 
         System.Threading.Thread.Sleep(200);
         //Debug.Log(imageGrabbed.Size);
     }
+
+    
+
     private void DisplayFrameOnPlane()
     {
         if (tex != null)
@@ -85,13 +95,13 @@ public class CaptureCamera : MonoBehaviour
         CvInvoke.Resize(imageGrabbed, imageGrabbed, new System.Drawing.Size(width, height));
         CvInvoke.CvtColor(imageGrabbed, imageGrabbed, ColorConversion.Bgr2Rgba);
         CvInvoke.Flip(imageGrabbed, imageGrabbed, FlipType.Vertical);
-        
-        if(imageGrabbed == null)
+
+        if (imageGrabbed == null)
         {
             Debug.LogError("DisplayFrameOnPlane : ImageGrabbed is null");
             return;
         }
-        if(tex == null)
+        if (tex == null)
         {
             Debug.LogError("DisplayFrameOnPlane : tex is null");
             return;
@@ -102,4 +112,20 @@ public class CaptureCamera : MonoBehaviour
         webcamScreen.texture = tex;
     }
 
+    private void ShapeDetection(Mat imageGrabbed)
+    {
+        double seuil = 180.0;
+        double circleAccumulatorThreshold = 120;
+
+        CircleF[] circles = CvInvoke.HoughCircles(imageGrabbed, HoughModes.Gradient, 2.0, 2.0, seuil, circleAccumulatorThreshold, 5);
+
+        if(circles == null || circles.Length == 0)
+        {
+            Debug.LogWarning("No circle");
+        }
+        else
+        {
+            Debug.Log("Circle!");
+        }
+    }
 }
