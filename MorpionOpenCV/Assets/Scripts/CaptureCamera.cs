@@ -64,9 +64,10 @@ public class CaptureCamera : MonoBehaviour
 
             lock (imageGrabbed)
             {
+                var original = imageGrabbed;
                 CvInvoke.CvtColor(imageGrabbed, imageGrabbed, ColorConversion.Bgr2Gray);
                 CvInvoke.GaussianBlur(imageGrabbed, imageGrabbed, new Size(3, 3), 1);
-                //ShapeDetection(imageGrabbed);
+                ShapeDetection(imageGrabbed, original);
             }
         }
 
@@ -111,7 +112,7 @@ public class CaptureCamera : MonoBehaviour
         webcamScreen.texture = tex;
     }
 
-    private void ShapeDetection(Mat imageGrabbed)
+    private void ShapeDetection(Mat imageGrabbed, Mat original)
     {
         double seuil = 180.0;
         double circleAccumulatorThreshold = 120;
@@ -125,9 +126,8 @@ public class CaptureCamera : MonoBehaviour
         else
         {
             //Detect color
-            
             Debug.Log("Circle!");
-            ColorDetection(imageGrabbed, circles.FirstOrDefault().Center);
+            ColorDetection(original, circles.FirstOrDefault().Center);
         }
 
     }
