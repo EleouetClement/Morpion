@@ -17,9 +17,11 @@ public class CaptureCamera : MonoBehaviour
     private VideoCapture webCamera = new VideoCapture(0);
     public RawImage webcamScreen;
     private Mat imageGrabbed = new Mat();
-    private Mat grayImaged = new Mat();
+    private Mat grayImage = new Mat();
+    UMat cannyEdges = new UMat();
     private const int Treshold = 600;
     Texture2D tex;
+    Triangle2DF triangle;
 
     private System.Drawing.Rectangle[] faces = new System.Drawing.Rectangle[1];
 
@@ -29,6 +31,7 @@ public class CaptureCamera : MonoBehaviour
     {
         webCamera.ImageGrabbed += HandleWebcamQueryFrame;
         webCamera.Start();
+        
     }
 
     // Update is called once per frame
@@ -74,6 +77,12 @@ public class CaptureCamera : MonoBehaviour
             }
         }
     }
+
+    /// <summary>
+    /// for each frame, process it to detect colors and shapes
+    /// </summary>
+    /// <param name="sender"></param>
+    /// <param name="e"></param>
     private void HandleWebcamQueryFrame(object sender, System.EventArgs e)
     {
         imageGrabbed = new Mat();
@@ -86,8 +95,9 @@ public class CaptureCamera : MonoBehaviour
             {
                 var image = imageGrabbed.ToImage<Bgr, byte>();
                 var original = new Image<Bgr, byte>(image.Width, image.Height);
+                var grayCopy = new Mat();
                 Mat matRes = original.Mat;
-
+                imageGrabbed.CopyTo(grayCopy);
                 //CvInvoke.Flip();
                 CopyToImage(image, original, 0, 0);
                 //CvInvoke.Imshow("Image_copie", matRes);
@@ -95,7 +105,7 @@ public class CaptureCamera : MonoBehaviour
                 //CvInvoke.DestroyWindow("Image_copie");            
                 CvInvoke.CvtColor(imageGrabbed, imageGrabbed, ColorConversion.Bgr2Gray);
                 CvInvoke.GaussianBlur(imageGrabbed, imageGrabbed, new Size(3, 3), 1);
-                ShapeDetection(imageGrabbed, original);
+                ShapeDetection(imageGrabbed, original, grayCopy);
             }
         }
 
@@ -103,6 +113,9 @@ public class CaptureCamera : MonoBehaviour
         //Debug.Log(imageGrabbed.Size);
     }
 
+    /// <summary>
+    /// Display the frame on the Unity image
+    /// </summary>
     private void DisplayFrameOnPlane()
     {
         if (tex != null)
@@ -140,7 +153,12 @@ public class CaptureCamera : MonoBehaviour
         webcamScreen.texture = tex;
     }
 
-    private void ShapeDetection(Mat imageGrabbed, Image<Bgr, byte> original)
+    /// <summary>
+    /// Detect if the shape is a circle or a cross
+    /// </summary>
+    /// <param name="imageGrabbed"></param>
+    /// <param name="original"></param>
+    private void ShapeDetection(Mat imageGrabbed, Image<Bgr, byte> original, Mat grayCopy)
     {
         double seuil = 180.0;
         double circleAccumulatorThreshold = 120;
@@ -149,15 +167,93 @@ public class CaptureCamera : MonoBehaviour
         
         if (circles == null || circles.Length == 0)
         {
-            Debug.LogWarning("No circle");
+            //Debug.LogWarning("No circle");
+            List<Triangle2DF> triangles = DetectTriangle(grayCopy);
+            if (triangles == null)
+            {
+                Debug.LogWarning("No triangles");
+            }
+            else
+            {
+                Debug.Log("Triangles");
+            }
         }
         else
         {
             //Detect color
             Debug.Log("Circle!");
-            ColorDetection(original, circles.FirstOrDefault().Center);
+            //ColorDetection(original, circles.FirstOrDefault().Center);
         }
     }
+
+    /// <summary>
+    /// Try to detect a triangle in the Image
+    /// </summary>
+    /// <param name="grayCopy"></param>
+    /// <param name="original"></param>
+    private List<Triangle2DF> DetectTriangle(Mat grayCopy)
+    {
+        double cannyThreshold = 180.0;
+        double cannyThresholdLinking = 120.0;
+        CvInvoke.Canny(grayCopy, cannyEdges, cannyThreshold, cannyThresholdLinking);
+        LineSegment2D[] lines = CvInvoke.HoughLinesP(cannyEdges, 1, Math.PI / 45.0, 20, 30, 10);
+        List<Triangle2DF> triangleList = new List<Triangle2DF>();
+        List<RotatedRect> boxList = new List<RotatedRect>(); //a box is a rotated rectangle
+        using (VectorOfVectorOfPoint contours = new VectorOfVectorOfPoint())
+        {
+            CvInvoke.FindContours(cannyEdges, contours, null, RetrType.List, ChainApproxMethod.ChainApproxSimple);
+            int count = contours.Size;
+            for (int i = 0; i < count; i++)
+            {
+                using (VectorOfPoint contour = contours[i])
+                using (VectorOfPoint approxContour = new VectorOfPoint())
+                {
+                    CvInvoke.ApproxPolyDP(contour, approxContour, CvInvoke.ArcLength(contour, true) * 0.05,
+                        true);
+                    if (CvInvoke.ContourArea(approxContour, false) > 250) //only consider contours with area greater than 250
+                    {
+                        if (approxContour.Size == 3) //The contour has 3 vertices, it is a triangle
+                        {
+                            Point[] pts = approxContour.ToArray();
+                            triangleList.Add(new Triangle2DF(pts[0],pts[1],pts[2]));
+                            
+                        }
+                        else if (approxContour.Size == 4) //The contour has 4 vertices.
+                        {
+                            bool isRectangle = true;
+                            Point[] pts = approxContour.ToArray();
+                            LineSegment2D[] edges = PointCollection.PolyLine(pts, true);
+
+                            for (int j = 0; j < edges.Length; j++)
+                            {
+                                double angle = Math.Abs(edges[(j + 1) % edges.Length].GetExteriorAngleDegree(edges[j]));
+                                if (angle < 80 || angle > 100)
+                                {
+                                    isRectangle = false;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            if(triangleList.Count > 0 )
+            {
+                return triangleList;
+            }
+            else
+            {
+                return null;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Detect the color of the shape
+    /// </summary>
+    /// <param name="imageGrabbed"></param>
+    /// <param name="center"></param>
+    /// <returns></returns>
     private Vector3 ColorDetection(Image<Bgr, byte> imageGrabbed, PointF center)
     {
         //switch last and 1st values to get rgb and not bgr
