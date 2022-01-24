@@ -75,10 +75,10 @@ public class CaptureCamera : MonoBehaviour
 
             lock (imageGrabbed)
             {
-                var orginalToGray = imageGrabbed.ToImage<Bgr, byte>();
-                var original = imageGrabbed.ToImage<Bgr, byte>();
+                var image = imageGrabbed.ToImage<Bgr, byte>();
+                var original = new Image<Bgr, byte>(image.Width, image.Height);
 
-                CopyToImage(orginalToGray, original, 0, 0);
+                CopyToImage(image, original, 0, 0);
                 CvInvoke.CvtColor(imageGrabbed, imageGrabbed, ColorConversion.Bgr2Gray);
                 CvInvoke.GaussianBlur(imageGrabbed, imageGrabbed, new Size(3, 3), 1);
                 ShapeDetection(imageGrabbed, original);
