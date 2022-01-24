@@ -171,11 +171,12 @@ public class CaptureCamera : MonoBehaviour
             List<Triangle2DF> triangles = DetectTriangle(grayCopy);
             if (triangles == null)
             {
-                Debug.LogWarning("No triangles");
+                Debug.LogWarning("No triangles");               
             }
             else
             {
                 Debug.Log("Triangles");
+                //ColorDetection(original, triangles[0].Centeroid);
             }
         }
         else
