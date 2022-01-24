@@ -97,13 +97,14 @@ public class CaptureCamera : MonoBehaviour
                 Mat matRes = original.Mat;
                 imageGrabbed.CopyTo(grayCopy);
                 CopyToImage(image, original, 0, 0);
-                CvInvoke.CvtColor(imageGrabbed, imageGrabbed, ColorConversion.Bgr2Gray);
-                CvInvoke.GaussianBlur(imageGrabbed, imageGrabbed, new Size(3, 3), 1);
+                CvInvoke.CvtColor(imageGrabbed, grayCopy, ColorConversion.Bgr2Gray);
+                CvInvoke.GaussianBlur(grayCopy, grayCopy, new Size(3, 3), 1);
+                CvInvoke.Imshow("imag", imageGrabbed);
                 ShapeDetection(imageGrabbed, original, grayCopy);
             }
         }
 
-        System.Threading.Thread.Sleep(200);
+        System.Threading.Thread.Sleep(50);
         //Debug.Log(imageGrabbed.Size);
     }
 
@@ -159,7 +160,7 @@ public class CaptureCamera : MonoBehaviour
         
         if (isCircleTurn)
         {
-            CircleF[] circles = CvInvoke.HoughCircles(imageGrabbed, HoughModes.Gradient, 2.0, 2.0, seuil, circleAccumulatorThreshold, 5);
+            CircleF[] circles = CvInvoke.HoughCircles(grayCopy, HoughModes.Gradient, 2.0, 2.0, seuil, circleAccumulatorThreshold, 5);
             if (circles == null || circles.Length == 0)
             {
                 Debug.LogWarning("No circle detected yet");
@@ -186,7 +187,7 @@ public class CaptureCamera : MonoBehaviour
         if (isTriangleTurn)
         {
             List<Triangle2DF> triangles = DetectTriangle(grayCopy);
-            if (triangles == null)
+            if (triangles == null || triangles.Count == 0)
             {
                 Debug.LogWarning("No triangles");
             }
