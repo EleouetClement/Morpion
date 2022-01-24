@@ -54,7 +54,18 @@ public class CaptureCamera : MonoBehaviour
             webCamera.Dispose();
         }
     }
-
+    public static void CopyToImage(Image<Bgr, byte> img1, Image<Bgr, byte> img2, int offsetX, int offsetY)
+    {
+        for (int i = 0; i < img1.Height; i++)
+        {
+            for (int j = 0; j < img1.Width; j++)
+            {
+                img2.Data[i + offsetY, j + offsetX, 0] = img1.Data[i, j, 0];
+                img2.Data[i + offsetY, j + offsetX, 1] = img1.Data[i, j, 1];
+                img2.Data[i + offsetY, j + offsetX, 2] = img1.Data[i, j, 2];
+            }
+        }
+    }
     private void HandleWebcamQueryFrame(object sender, System.EventArgs e)
     {
         if (webCamera.IsOpened)
@@ -64,7 +75,10 @@ public class CaptureCamera : MonoBehaviour
 
             lock (imageGrabbed)
             {
-                var original = imageGrabbed;
+                var orginalToGray = imageGrabbed.ToImage<Bgr, byte>();
+                var original = imageGrabbed.ToImage<Bgr, byte>();
+
+                CopyToImage(orginalToGray, original, 0, 0);
                 CvInvoke.CvtColor(imageGrabbed, imageGrabbed, ColorConversion.Bgr2Gray);
                 CvInvoke.GaussianBlur(imageGrabbed, imageGrabbed, new Size(3, 3), 1);
                 ShapeDetection(imageGrabbed, original);
@@ -112,7 +126,7 @@ public class CaptureCamera : MonoBehaviour
         webcamScreen.texture = tex;
     }
 
-    private void ShapeDetection(Mat imageGrabbed, Mat original)
+    private void ShapeDetection(Mat imageGrabbed, Image<Bgr, byte> original)
     {
         double seuil = 180.0;
         double circleAccumulatorThreshold = 120;
@@ -131,19 +145,11 @@ public class CaptureCamera : MonoBehaviour
         }
 
     }
-    private Vector3 ColorDetection(Mat imageGrabbed, PointF center)
+    private Vector3 ColorDetection(Image<Bgr, byte> imageGrabbed, PointF center)
     {
-        var image = imageGrabbed.ToImage<Bgr, byte>();
-        Vector3 color = new Vector3(image.Data[(int)center.X, (int)center.Y, 0],
-            image.Data[(int)center.X, (int)center.Y, 1],
-            image.Data[(int)center.X, (int)center.Y, 3]);
+        Vector3 color = new Vector3(imageGrabbed.Data[(int)center.X, (int)center.Y, 0],
+            imageGrabbed.Data[(int)center.X, (int)center.Y, 1],
+            imageGrabbed.Data[(int)center.X, (int)center.Y, 2]);
         return color;
-        //for(float x = center.X-1f; x < center.X + 1f; x++ )
-        //{
-        //    for (float y = center.Y - 1f; y < center.Y + 1f; y++)
-        //    {
-
-        //    }
-        //}
     }
 }
