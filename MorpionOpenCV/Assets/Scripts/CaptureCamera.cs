@@ -163,7 +163,7 @@ public class CaptureCamera : MonoBehaviour
     {
         double seuil = 180.0;
         double circleAccumulatorThreshold = 120;
-        
+
         if (isCircleTurn)
         {
             CircleF[] circles = CvInvoke.HoughCircles(grayCopy, HoughModes.Gradient, 2.0, 2.0, seuil, circleAccumulatorThreshold, 5);
@@ -277,15 +277,15 @@ public class CaptureCamera : MonoBehaviour
     }
     GameObject MatchColorWithGrid(Vector3 color)
     {
-        Vector3 minDistance = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
+        float minDistance = float.MaxValue;
         GameObject match = null;
-        if(!(gridComponents == null || gridComponents.Count == 0))
+        if (!(gridComponents == null || gridComponents.Count == 0))
         {
             foreach (var comp in gridComponents)
             {
                 var compColor = comp.GetComponent<Renderer>().material.color;
-                var distance = new Vector3(Mathf.Abs(color.x - compColor.r), Mathf.Abs(color.y - compColor.g), Mathf.Abs(color.z - compColor.b));
-                if (distance.x < minDistance.x && distance.y < minDistance.y && distance.z < minDistance.z)
+                var distance = Vector3.Distance(color, new Vector3(compColor.r, compColor.g, compColor.b));
+                if (distance < minDistance)
                 {
                     minDistance = distance;
                     match = comp;
