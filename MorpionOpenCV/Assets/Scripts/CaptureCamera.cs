@@ -9,6 +9,7 @@ using Emgu.CV.Structure;
 using Emgu.CV.CvEnum;
 using Emgu.CV.Util;
 using System;
+using System.Linq;
 
 public class CaptureCamera : MonoBehaviour
 {
@@ -17,7 +18,7 @@ public class CaptureCamera : MonoBehaviour
     public RawImage webcamScreen;
     private Mat imageGrabbed = new Mat();
     private Mat grayImaged = new Mat();
-
+    private const int Treshold = 600;
     Texture2D tex;
 
     private System.Drawing.Rectangle[] faces = new System.Drawing.Rectangle[1];
@@ -64,16 +65,14 @@ public class CaptureCamera : MonoBehaviour
             lock (imageGrabbed)
             {
                 CvInvoke.CvtColor(imageGrabbed, imageGrabbed, ColorConversion.Bgr2Gray);
-                CvInvoke.GaussianBlur(imageGrabbed, imageGrabbed,new Size(3, 3), 1);
-                ShapeDetection(imageGrabbed);
+                CvInvoke.GaussianBlur(imageGrabbed, imageGrabbed, new Size(3, 3), 1);
+                //ShapeDetection(imageGrabbed);
             }
         }
 
         System.Threading.Thread.Sleep(200);
         //Debug.Log(imageGrabbed.Size);
     }
-
-    
 
     private void DisplayFrameOnPlane()
     {
@@ -118,14 +117,33 @@ public class CaptureCamera : MonoBehaviour
         double circleAccumulatorThreshold = 120;
 
         CircleF[] circles = CvInvoke.HoughCircles(imageGrabbed, HoughModes.Gradient, 2.0, 2.0, seuil, circleAccumulatorThreshold, 5);
-
-        if(circles == null || circles.Length == 0)
+        
+        if (circles == null || circles.Length == 0)
         {
             Debug.LogWarning("No circle");
         }
         else
         {
+            //Detect color
+            
             Debug.Log("Circle!");
+            ColorDetection(imageGrabbed, circles.FirstOrDefault().Center);
         }
+
+    }
+    private Vector3 ColorDetection(Mat imageGrabbed, PointF center)
+    {
+        var image = imageGrabbed.ToImage<Bgr, byte>();
+        Vector3 color = new Vector3(image.Data[(int)center.X, (int)center.Y, 0],
+            image.Data[(int)center.X, (int)center.Y, 1],
+            image.Data[(int)center.X, (int)center.Y, 3]);
+        return color;
+        //for(float x = center.X-1f; x < center.X + 1f; x++ )
+        //{
+        //    for (float y = center.Y - 1f; y < center.Y + 1f; y++)
+        //    {
+
+        //    }
+        //}
     }
 }
