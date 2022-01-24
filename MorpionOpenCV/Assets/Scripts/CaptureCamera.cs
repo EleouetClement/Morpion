@@ -77,7 +77,12 @@ public class CaptureCamera : MonoBehaviour
             {
                 var image = imageGrabbed.ToImage<Bgr, byte>();
                 var original = new Image<Bgr, byte>(image.Width, image.Height);
+                Mat matRes = original.Mat;
 
+                //CvInvoke.Flip();
+                CvInvoke.Imshow(" ", matRes);
+                CvInvoke.WaitKey(0);  //Wait for the key pressing event
+                CvInvoke.DestroyWindow(" ");
                 CopyToImage(image, original, 0, 0);
                 CvInvoke.CvtColor(imageGrabbed, imageGrabbed, ColorConversion.Bgr2Gray);
                 CvInvoke.GaussianBlur(imageGrabbed, imageGrabbed, new Size(3, 3), 1);
@@ -143,7 +148,6 @@ public class CaptureCamera : MonoBehaviour
             Debug.Log("Circle!");
             ColorDetection(original, circles.FirstOrDefault().Center);
         }
-
     }
     private Vector3 ColorDetection(Image<Bgr, byte> imageGrabbed, PointF center)
     {
