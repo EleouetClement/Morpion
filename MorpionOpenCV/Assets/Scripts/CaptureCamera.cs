@@ -279,38 +279,152 @@ public class CaptureCamera : MonoBehaviour
     {
         float minDistance = float.MaxValue;
         GameObject match = null;
-        if (!(gridComponents == null || gridComponents.Count == 0))
+        Vector4 labColor = RGBToLab(new Vector4(color.x, color.y, color.z, 255));
+        bool pouet = IsItGray(color);
+        if (!(gridComponents == null || gridComponents.Count == 0) && !pouet)
         {
             foreach (var comp in gridComponents)
             {
                 var compColor = comp.GetComponent<Renderer>().material.color;
+                Vector4 labCompColor = RGBToLab(new Vector4(compColor.r, compColor.g, compColor.b, compColor.a));
+                float deltaE = DeltaE(labColor, labCompColor);
                 var distance = Vector3.Distance(color, new Vector3(compColor.r, compColor.g, compColor.b));
-                if (distance < minDistance)
+                if (deltaE < minDistance)
                 {
-                    minDistance = distance;
+                    minDistance = deltaE;
                     match = comp;
                 }
             }
             if (match != null && !gridFlags[match])
             {
-                gridFlags[match] = true;
-                return match;
+                lock(gridFlags)
+                {
+                    gridFlags[match] = true;
+                    return match;
+                }             
             }
         }
         return null;
     }
-    private System.Drawing.Color GetSystemDrawingColorFromHexString(string hexString)
+    
+    private bool IsItGray(Vector3 color)
     {
-        if (!System.Text.RegularExpressions.Regex.IsMatch(hexString, @"[#]([0-9]|[a-f]|[A-F]){6}\b"))
-            throw new ArgumentException();
-        int red = int.Parse(hexString.Substring(1, 2), NumberStyles.HexNumber);
-        int green = int.Parse(hexString.Substring(3, 2), NumberStyles.HexNumber);
-        int blue = int.Parse(hexString.Substring(5, 2), NumberStyles.HexNumber);
-        return System.Drawing.Color.FromArgb(red, green, blue);
+        //TO DO
+        float xy = Mathf.Abs(color.x - color.y);
+        if(xy < 25)
+        {
+            float xz = Mathf.Abs(color.x - color.z);
+            if(xz < 25)
+            {
+                return true;
+            }
+        }
+        return false;//TO CHANGE
     }
-    private string GetColor(string colorCode)
+
+
+    /// <summary>
+    /// Calculate the Delta-e value of to colors in 
+    /// the lab space
+    /// </summary>
+    /// <param name="labColorA"></param>
+    /// <param name="labColorB"></param>
+    /// <returns></returns>
+    public float DeltaE(Vector4 labColorA, Vector4 labColorB)
     {
-        System.Drawing.Color color = GetSystemDrawingColorFromHexString(colorCode);
-        return color.Name;
+        float deltaE = Mathf.Epsilon;
+        float l = Mathf.Pow((labColorB.x - labColorA.x), 2);
+        float a = Mathf.Pow((labColorB.y - labColorA.y), 2);
+        float b = Mathf.Pow((labColorB.z - labColorA.z), 2);
+        deltaE = Mathf.Sqrt(l + a + b);
+        return deltaE;
+    }
+
+    public static Vector4 RGBToLab(Vector4 color)
+    {
+        float[] xyz = new float[3];
+        float[] lab = new float[3];
+        float[] rgb = new float[] { color[0], color[1], color[2], color[3] };
+
+        rgb[0] = color[0] / 255.0f;
+        rgb[1] = color[1] / 255.0f;
+        rgb[2] = color[2] / 255.0f;
+
+        if (rgb[0] > .04045f)
+        {
+            rgb[0] = (float)Math.Pow((rgb[0] + .055) / 1.055, 2.4);
+        }
+        else
+        {
+            rgb[0] = rgb[0] / 12.92f;
+        }
+
+        if (rgb[1] > .04045f)
+        {
+            rgb[1] = (float)Math.Pow((rgb[1] + .055) / 1.055, 2.4);
+        }
+        else
+        {
+            rgb[1] = rgb[1] / 12.92f;
+        }
+
+        if (rgb[2] > .04045f)
+        {
+            rgb[2] = (float)Math.Pow((rgb[2] + .055) / 1.055, 2.4);
+        }
+        else
+        {
+            rgb[2] = rgb[2] / 12.92f;
+        }
+        rgb[0] = rgb[0] * 100.0f;
+        rgb[1] = rgb[1] * 100.0f;
+        rgb[2] = rgb[2] * 100.0f;
+
+
+        xyz[0] = ((rgb[0] * .412453f) + (rgb[1] * .357580f) + (rgb[2] * .180423f));
+        xyz[1] = ((rgb[0] * .212671f) + (rgb[1] * .715160f) + (rgb[2] * .072169f));
+        xyz[2] = ((rgb[0] * .019334f) + (rgb[1] * .119193f) + (rgb[2] * .950227f));
+
+
+        xyz[0] = xyz[0] / 95.047f;
+        xyz[1] = xyz[1] / 100.0f;
+        xyz[2] = xyz[2] / 108.883f;
+
+        if (xyz[0] > .008856f)
+        {
+            xyz[0] = (float)Math.Pow(xyz[0], (1.0 / 3.0));
+        }
+        else
+        {
+            xyz[0] = (xyz[0] * 7.787f) + (16.0f / 116.0f);
+        }
+
+        if (xyz[1] > .008856f)
+        {
+            xyz[1] = (float)Math.Pow(xyz[1], 1.0 / 3.0);
+        }
+        else
+        {
+            xyz[1] = (xyz[1] * 7.787f) + (16.0f / 116.0f);
+        }
+
+        if (xyz[2] > .008856f)
+        {
+            xyz[2] = (float)Math.Pow(xyz[2], 1.0 / 3.0);
+        }
+        else
+        {
+            xyz[2] = (xyz[2] * 7.787f) + (16.0f / 116.0f);
+        }
+
+        lab[0] = (116.0f * xyz[1]) - 16.0f;
+        lab[1] = 500.0f * (xyz[0] - xyz[1]);
+        lab[2] = 200.0f * (xyz[1] - xyz[2]);
+        //Debug.Log("L:" + (int)lab[0]);
+        //Debug.Log("A:" + (int)lab[1]);
+        //Debug.Log("B:" + (int)lab[2]);
+        //Debug.Log("W:" + (int)color[3]);
+
+        return new Vector4(lab[0], lab[1], lab[2], color[3]);
     }
 }
