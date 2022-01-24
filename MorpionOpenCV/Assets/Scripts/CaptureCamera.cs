@@ -54,6 +54,14 @@ public class CaptureCamera : MonoBehaviour
             webCamera.Dispose();
         }
     }
+
+    /// <summary>
+    /// copy one image to an empty one
+    /// </summary>
+    /// <param name="img1"></param>
+    /// <param name="img2"></param>
+    /// <param name="offsetX"></param>
+    /// <param name="offsetY"></param>
     public static void CopyToImage(Image<Bgr, byte> img1, Image<Bgr, byte> img2, int offsetX, int offsetY)
     {
         for (int i = 0; i < img1.Height; i++)
@@ -68,6 +76,7 @@ public class CaptureCamera : MonoBehaviour
     }
     private void HandleWebcamQueryFrame(object sender, System.EventArgs e)
     {
+        imageGrabbed = new Mat();
         if (webCamera.IsOpened)
         {
             webCamera.Retrieve(imageGrabbed);
@@ -80,10 +89,10 @@ public class CaptureCamera : MonoBehaviour
                 Mat matRes = original.Mat;
 
                 //CvInvoke.Flip();
-                CvInvoke.Imshow(" ", matRes);
-                CvInvoke.WaitKey(0);  //Wait for the key pressing event
-                CvInvoke.DestroyWindow(" ");
                 CopyToImage(image, original, 0, 0);
+                //CvInvoke.Imshow("Image_copie", matRes);
+                //CvInvoke.WaitKey(0);  //Wait for the key pressing event
+                //CvInvoke.DestroyWindow("Image_copie");            
                 CvInvoke.CvtColor(imageGrabbed, imageGrabbed, ColorConversion.Bgr2Gray);
                 CvInvoke.GaussianBlur(imageGrabbed, imageGrabbed, new Size(3, 3), 1);
                 ShapeDetection(imageGrabbed, original);
@@ -151,9 +160,10 @@ public class CaptureCamera : MonoBehaviour
     }
     private Vector3 ColorDetection(Image<Bgr, byte> imageGrabbed, PointF center)
     {
-        Vector3 color = new Vector3(imageGrabbed.Data[(int)center.X, (int)center.Y, 0],
+        //switch last and 1st values to get rgb and not bgr
+        Vector3 color = new Vector3(imageGrabbed.Data[(int)center.X, (int)center.Y, 2],
             imageGrabbed.Data[(int)center.X, (int)center.Y, 1],
-            imageGrabbed.Data[(int)center.X, (int)center.Y, 2]);
+            imageGrabbed.Data[(int)center.X, (int)center.Y, 0]);
         return color;
     }
 }
