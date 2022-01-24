@@ -24,7 +24,6 @@ public class CaptureCamera : MonoBehaviour
     public GameObject circlePrefab;
     private bool isCircleTurn = true;
     private bool isTriangleTurn = false;
-
     // Start is called before the first frame update
     void Start()
     {
@@ -157,7 +156,7 @@ public class CaptureCamera : MonoBehaviour
     {
         double seuil = 180.0;
         double circleAccumulatorThreshold = 120;
-
+        
         if (isCircleTurn)
         {
             CircleF[] circles = CvInvoke.HoughCircles(imageGrabbed, HoughModes.Gradient, 2.0, 2.0, seuil, circleAccumulatorThreshold, 5);
@@ -176,7 +175,7 @@ public class CaptureCamera : MonoBehaviour
                     Instantiate(circlePrefab, matchComponent.transform.position, Quaternion.identity);
                     isCircleTurn = false;
                     isTriangleTurn = true;
-                    Debug.Log("tour du cercle");
+                    Debug.Log("Cercle a joue");
                 }
                 else
                     Debug.LogError("No color has been matched");
@@ -201,7 +200,7 @@ public class CaptureCamera : MonoBehaviour
                     Instantiate(trianglePrefab, matchComponent.transform.position, Quaternion.identity);
                     isTriangleTurn = false;
                     isCircleTurn = true;
-                    Debug.Log("tour du triangle");
+                    Debug.Log("Triangle a joue");
                 }
                 else
                     Debug.LogError("No color has been matched");
@@ -273,15 +272,21 @@ public class CaptureCamera : MonoBehaviour
     {
         float minDistance = float.MaxValue;
         GameObject match = null;
-        foreach (var comp in gridComponents)
+        GameObject minComp = null;
+        if(!(gridComponents == null || gridComponents.Count == 0))
         {
-            var compColor = comp.GetComponent<Renderer>().material.color;
-            var distance = Vector3.Distance(color, new Vector3(compColor.r, compColor.g, compColor.b));
-            if (distance < minDistance)
+            foreach (var comp in gridComponents)
             {
-                minDistance = distance;
-                match = comp;
+                var compColor = comp.GetComponent<Renderer>().material.color;
+                var distance = Vector3.Distance(color, new Vector3(compColor.r, compColor.g, compColor.b));
+                if (distance < minDistance)
+                {
+                    minDistance = distance;
+                    minComp = comp;
+                    match = comp;
+                }
             }
+            gridComponents.Remove(minComp);//Remove the box to avoid it to be played more than once
         }
         return match;
     }
