@@ -17,21 +17,20 @@ public class CaptureCamera : MonoBehaviour
     private VideoCapture webCamera = new VideoCapture(0);
     public RawImage webcamScreen;
     private Mat imageGrabbed = new Mat();
-    private Mat grayImage = new Mat();
     UMat cannyEdges = new UMat();
-    private const int Treshold = 600;
     Texture2D tex;
-    Triangle2DF triangle;
-
-    private System.Drawing.Rectangle[] faces = new System.Drawing.Rectangle[1];
-
+    public List<GameObject> gridComponents;
+    public GameObject trianglePrefab;
+    public GameObject circlePrefab;
+    private bool isCircleTurn = true;
+    private bool isTriangleTurn = false;
 
     // Start is called before the first frame update
     void Start()
     {
         webCamera.ImageGrabbed += HandleWebcamQueryFrame;
         webCamera.Start();
-        
+
     }
 
     // Update is called once per frame
@@ -98,11 +97,7 @@ public class CaptureCamera : MonoBehaviour
                 var grayCopy = new Mat();
                 Mat matRes = original.Mat;
                 imageGrabbed.CopyTo(grayCopy);
-                //CvInvoke.Flip();
                 CopyToImage(image, original, 0, 0);
-                //CvInvoke.Imshow("Image_copie", matRes);
-                //CvInvoke.WaitKey(0);  //Wait for the key pressing event
-                //CvInvoke.DestroyWindow("Image_copie");            
                 CvInvoke.CvtColor(imageGrabbed, imageGrabbed, ColorConversion.Bgr2Gray);
                 CvInvoke.GaussianBlur(imageGrabbed, imageGrabbed, new Size(3, 3), 1);
                 ShapeDetection(imageGrabbed, original, grayCopy);
@@ -163,27 +158,54 @@ public class CaptureCamera : MonoBehaviour
         double seuil = 180.0;
         double circleAccumulatorThreshold = 120;
 
-        CircleF[] circles = CvInvoke.HoughCircles(imageGrabbed, HoughModes.Gradient, 2.0, 2.0, seuil, circleAccumulatorThreshold, 5);
-        
-        if (circles == null || circles.Length == 0)
+        if (isCircleTurn)
         {
-            //Debug.LogWarning("No circle");
-            List<Triangle2DF> triangles = DetectTriangle(grayCopy);
-            if (triangles == null)
+            CircleF[] circles = CvInvoke.HoughCircles(imageGrabbed, HoughModes.Gradient, 2.0, 2.0, seuil, circleAccumulatorThreshold, 5);
+            if (circles == null || circles.Length == 0)
             {
-                Debug.LogWarning("No triangles");               
+                Debug.LogWarning("No circle detected yet");
             }
             else
             {
-                Debug.Log("Triangles");
-                //ColorDetection(original, triangles[0].Centeroid);
+                //Detect color
+                //Debug.Log("Circle!");
+                var color = ColorDetection(original, circles.FirstOrDefault().Center);
+                var matchComponent = MatchColorWithGrid(color);
+                if (matchComponent != null)
+                {
+                    Instantiate(circlePrefab, matchComponent.transform.position, Quaternion.identity);
+                    isCircleTurn = false;
+                    isTriangleTurn = true;
+                    Debug.Log("tour du cercle");
+                }
+                else
+                    Debug.LogError("No color has been matched");
             }
+
         }
-        else
+
+        if (isTriangleTurn)
         {
-            //Detect color
-            Debug.Log("Circle!");
-            //ColorDetection(original, circles.FirstOrDefault().Center);
+            List<Triangle2DF> triangles = DetectTriangle(grayCopy);
+            if (triangles == null)
+            {
+                Debug.LogWarning("No triangles");
+            }
+            else
+            {
+                //Debug.Log("Triangles");
+                var color = ColorDetection(original, triangles[0].Centeroid);
+                var matchComponent = MatchColorWithGrid(color);
+                if (matchComponent != null)
+                {
+                    Instantiate(trianglePrefab, matchComponent.transform.position, Quaternion.identity);
+                    isTriangleTurn = false;
+                    isCircleTurn = true;
+                    Debug.Log("tour du triangle");
+                }
+                else
+                    Debug.LogError("No color has been matched");
+            }
         }
     }
 
@@ -216,29 +238,13 @@ public class CaptureCamera : MonoBehaviour
                         if (approxContour.Size == 3) //The contour has 3 vertices, it is a triangle
                         {
                             Point[] pts = approxContour.ToArray();
-                            triangleList.Add(new Triangle2DF(pts[0],pts[1],pts[2]));
-                            
-                        }
-                        else if (approxContour.Size == 4) //The contour has 4 vertices.
-                        {
-                            bool isRectangle = true;
-                            Point[] pts = approxContour.ToArray();
-                            LineSegment2D[] edges = PointCollection.PolyLine(pts, true);
+                            triangleList.Add(new Triangle2DF(pts[0], pts[1], pts[2]));
 
-                            for (int j = 0; j < edges.Length; j++)
-                            {
-                                double angle = Math.Abs(edges[(j + 1) % edges.Length].GetExteriorAngleDegree(edges[j]));
-                                if (angle < 80 || angle > 100)
-                                {
-                                    isRectangle = false;
-                                    break;
-                                }
-                            }
                         }
                     }
                 }
             }
-            if(triangleList.Count > 0 )
+            if (triangleList.Count > 0)
             {
                 return triangleList;
             }
@@ -262,5 +268,21 @@ public class CaptureCamera : MonoBehaviour
             imageGrabbed.Data[(int)center.X, (int)center.Y, 1],
             imageGrabbed.Data[(int)center.X, (int)center.Y, 0]);
         return color;
+    }
+    GameObject MatchColorWithGrid(Vector3 color)
+    {
+        float minDistance = float.MaxValue;
+        GameObject match = null;
+        foreach (var comp in gridComponents)
+        {
+            var compColor = comp.GetComponent<Renderer>().material.color;
+            var distance = Vector3.Distance(color, new Vector3(compColor.r, compColor.g, compColor.b));
+            if (distance < minDistance)
+            {
+                minDistance = distance;
+                match = comp;
+            }
+        }
+        return match;
     }
 }
