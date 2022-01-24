@@ -10,6 +10,7 @@ using Emgu.CV.CvEnum;
 using Emgu.CV.Util;
 using System;
 using System.Linq;
+using System.Globalization;
 
 public class CaptureCamera : MonoBehaviour
 {
@@ -20,6 +21,7 @@ public class CaptureCamera : MonoBehaviour
     UMat cannyEdges = new UMat();
     Texture2D tex;
     public List<GameObject> gridComponents;
+    private Dictionary<GameObject, bool> gridFlags;
     public GameObject trianglePrefab;
     public GameObject circlePrefab;
     private bool isCircleTurn = true;
@@ -29,7 +31,11 @@ public class CaptureCamera : MonoBehaviour
     {
         webCamera.ImageGrabbed += HandleWebcamQueryFrame;
         webCamera.Start();
-
+        gridFlags = new Dictionary<GameObject, bool>();
+        foreach (var comp in gridComponents)
+        {
+            gridFlags.Add(comp, false);
+        }
     }
 
     // Update is called once per frame
@@ -271,24 +277,40 @@ public class CaptureCamera : MonoBehaviour
     }
     GameObject MatchColorWithGrid(Vector3 color)
     {
-        float minDistance = float.MaxValue;
+        Vector3 minDistance = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
         GameObject match = null;
-        GameObject minComp = null;
         if(!(gridComponents == null || gridComponents.Count == 0))
         {
             foreach (var comp in gridComponents)
             {
                 var compColor = comp.GetComponent<Renderer>().material.color;
-                var distance = Vector3.Distance(color, new Vector3(compColor.r, compColor.g, compColor.b));
-                if (distance < minDistance)
+                var distance = new Vector3(Mathf.Abs(color.x - compColor.r), Mathf.Abs(color.y - compColor.g), Mathf.Abs(color.z - compColor.b));
+                if (distance.x < minDistance.x && distance.y < minDistance.y && distance.z < minDistance.z)
                 {
                     minDistance = distance;
-                    minComp = comp;
                     match = comp;
                 }
             }
-            gridComponents.Remove(minComp);//Remove the box to avoid it to be played more than once
+            if (match != null && !gridFlags[match])
+            {
+                gridFlags[match] = true;
+                return match;
+            }
         }
-        return match;
+        return null;
+    }
+    private System.Drawing.Color GetSystemDrawingColorFromHexString(string hexString)
+    {
+        if (!System.Text.RegularExpressions.Regex.IsMatch(hexString, @"[#]([0-9]|[a-f]|[A-F]){6}\b"))
+            throw new ArgumentException();
+        int red = int.Parse(hexString.Substring(1, 2), NumberStyles.HexNumber);
+        int green = int.Parse(hexString.Substring(3, 2), NumberStyles.HexNumber);
+        int blue = int.Parse(hexString.Substring(5, 2), NumberStyles.HexNumber);
+        return System.Drawing.Color.FromArgb(red, green, blue);
+    }
+    private string GetColor(string colorCode)
+    {
+        System.Drawing.Color color = GetSystemDrawingColorFromHexString(colorCode);
+        return color.Name;
     }
 }
