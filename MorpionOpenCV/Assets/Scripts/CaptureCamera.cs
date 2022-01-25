@@ -21,9 +21,13 @@ public class CaptureCamera : MonoBehaviour
     UMat cannyEdges = new UMat();
     Texture2D tex;
     public List<GameObject> gridComponents;
-    private Dictionary<GameObject, bool> gridFlags;
+
+    
+    private Dictionary<GameObject, bool> gridFlags;//Used to check if a color has already been choose
     public GameObject trianglePrefab;
     public GameObject circlePrefab;
+
+    //Set what type of shape the programm should expect
     private bool isCircleTurn = true;
     private bool isTriangleTurn = false;
     // Start is called before the first frame update
@@ -32,6 +36,8 @@ public class CaptureCamera : MonoBehaviour
         webCamera.ImageGrabbed += HandleWebcamQueryFrame;
         webCamera.Start();
         gridFlags = new Dictionary<GameObject, bool>();
+
+        //Setting up flags
         foreach (var comp in gridComponents)
         {
             gridFlags.Add(comp, false);
@@ -105,7 +111,7 @@ public class CaptureCamera : MonoBehaviour
                 CopyToImage(image, original, 0, 0);
                 CvInvoke.CvtColor(imageGrabbed, grayCopy, ColorConversion.Bgr2Gray);
                 CvInvoke.GaussianBlur(grayCopy, grayCopy, new Size(3, 3), 1);
-                CvInvoke.Imshow("imag", imageGrabbed);
+                //CvInvoke.Imshow("imag", imageGrabbed);
                 ShapeDetection(imageGrabbed, original, grayCopy);
             }
         }
@@ -166,10 +172,11 @@ public class CaptureCamera : MonoBehaviour
 
         if (isCircleTurn)
         {
+            //Circle Detection
             CircleF[] circles = CvInvoke.HoughCircles(grayCopy, HoughModes.Gradient, 2.0, 2.0, seuil, circleAccumulatorThreshold, 5);
             if (circles == null || circles.Length == 0)
             {
-                Debug.LogWarning("No circle detected yet");
+                //Debug.LogWarning("No circle detected yet");
             }
             else
             {
@@ -195,7 +202,7 @@ public class CaptureCamera : MonoBehaviour
             List<Triangle2DF> triangles = DetectTriangle(grayCopy);
             if (triangles == null || triangles.Count == 0)
             {
-                Debug.LogWarning("No triangles");
+                //Debug.LogWarning("No triangles");
             }
             else
             {
@@ -279,31 +286,38 @@ public class CaptureCamera : MonoBehaviour
     {
         float minDistance = float.MaxValue;
         GameObject match = null;
+        //color.Normalize();
         Vector4 labColor = RGBToLab(new Vector4(color.x, color.y, color.z, 255));
         bool pouet = IsItGray(color);
-        if (!(gridComponents == null || gridComponents.Count == 0) && !pouet)
+        Dictionary<UnityEngine.Color, float> verifications = new Dictionary<UnityEngine.Color, float>();
+        if (!(gridComponents == null || gridComponents.Count == 0))
         {
             foreach (var comp in gridComponents)
             {
                 var compColor = comp.GetComponent<Renderer>().material.color;
                 Vector4 labCompColor = RGBToLab(new Vector4(compColor.r, compColor.g, compColor.b, compColor.a));
-                float deltaE = DeltaE(labColor, labCompColor);
-                var distance = Vector3.Distance(color, new Vector3(compColor.r, compColor.g, compColor.b));
+                Vector3 testDenormalize = new Vector3(compColor.r * 255.0f, compColor.g * 255.0f, compColor.b * 255.0f);
+                
+                Vector4 labCompColorDenormalized = RGBToLab(new Vector4(testDenormalize.x, testDenormalize.y, testDenormalize.z, 255));
+                float deltaE = DeltaE(labColor, labCompColorDenormalized);
+                //var distance = Vector3.Distance(color, testDenormalize);
+                verifications.Add(compColor, deltaE);
                 if (deltaE < minDistance)
                 {
                     minDistance = deltaE;
                     match = comp;
                 }
-            }
-            if (match != null && !gridFlags[match])
-            {
+            }           
                 lock(gridFlags)
                 {
-                    gridFlags[match] = true;
-                    return match;
+                    if (match != null && !gridFlags[match])
+                    {
+                        gridFlags[match] = true;
+                        return match;
+                    }
                 }             
-            }
         }
+
         return null;
     }
     
